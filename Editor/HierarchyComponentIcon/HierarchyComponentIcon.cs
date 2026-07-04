@@ -8,9 +8,9 @@ namespace VMFramework.HierarchyColor
 {
     public class HierarchyComponentIcon
     {
-        private static int MaxIconNum => HierarchyColorSettings.instance.MaxIconNum;
+        internal static int MaxIconNum => HierarchyColorSettings.instance.MaxIconNum;
 
-        private static int IconSize => HierarchyColorSettings.instance.IconSize;
+        internal static int IconSize => HierarchyColorSettings.instance.IconSize;
 
         private static readonly HashSet<Type> hideTypes = new()
         {
@@ -38,21 +38,7 @@ namespace VMFramework.HierarchyColor
             rect.x = 0;
 
             var obj = (GameObject)tempObj;
-            var components = new List<Component>();
-            foreach (var component in obj.GetComponents<Component>())
-            {
-                if (component == null)
-                {
-                    continue;
-                }
-
-                if (IsTypeIconRequiredToHide(component.GetType()))
-                {
-                    continue;
-                }
-
-                components.Add(component);
-            }
+            var components = GetVisibleComponents(obj);
 
             int iconSize = IconSize;
             int y = 1;
@@ -62,7 +48,7 @@ namespace VMFramework.HierarchyColor
             {
                 Component com = components[i + iconOffset];
 
-                Texture2D texture = AssetPreview.GetMiniThumbnail(com);
+                Texture2D texture = GetComponentIcon(com);
 
                 if (texture)
                 {
@@ -74,7 +60,7 @@ namespace VMFramework.HierarchyColor
 
             if (components.Count == MaxIconNum + 1)
             {
-                Texture2D texture = AssetPreview.GetMiniThumbnail(components[^1]);
+                Texture2D texture = GetComponentIcon(components[^1]);
                 if (texture)
                 {
                     GUI.DrawTexture(
@@ -106,6 +92,32 @@ namespace VMFramework.HierarchyColor
                     }
                 }
             }
+        }
+
+        internal static List<Component> GetVisibleComponents(GameObject obj)
+        {
+            var components = new List<Component>();
+            foreach (var component in obj.GetComponents<Component>())
+            {
+                if (component == null)
+                {
+                    continue;
+                }
+
+                if (IsTypeIconRequiredToHide(component.GetType()))
+                {
+                    continue;
+                }
+
+                components.Add(component);
+            }
+
+            return components;
+        }
+
+        internal static Texture2D GetComponentIcon(Component component)
+        {
+            return AssetPreview.GetMiniThumbnail(component);
         }
 
         private static bool IsTypeIconRequiredToHide(Type type)
