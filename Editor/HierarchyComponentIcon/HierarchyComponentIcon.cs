@@ -119,6 +119,18 @@ namespace VMFramework.HierarchyColor
         internal static bool TryGetMainIconContent(GameObject obj, out GUIContent content,
             out HierarchyColorSettings.ScriptIconType iconType)
         {
+            return TryGetMainIconContent(obj, out content, out iconType, false);
+        }
+
+        internal static bool TryGetCustomMainIconContent(GameObject obj, out GUIContent content,
+            out HierarchyColorSettings.ScriptIconType iconType)
+        {
+            return TryGetMainIconContent(obj, out content, out iconType, true);
+        }
+
+        private static bool TryGetMainIconContent(GameObject obj, out GUIContent content,
+            out HierarchyColorSettings.ScriptIconType iconType, bool customIconOnly)
+        {
             content = null;
             iconType = HierarchyColorSettings.ScriptIconType.UnityDefault;
 
@@ -140,20 +152,33 @@ namespace VMFramework.HierarchyColor
                 return false;
             }
 
-            content = GetTopComponentContent(components);
+            var contentComponent = GetTopComponent(components);
+            content = GetContent(contentComponent != null ? contentComponent.GetType() : typeof(Component),
+                contentComponent);
             if (content == null || content.image == null)
             {
                 return false;
             }
 
-            iconType = GetMainIconType(components, ref content);
-            if (settings.OverridePrefabIconType && IsPrefab(obj))
+            iconType = GetMainIconType(components, ref content, ref contentComponent);
+            bool usesPrefabOverride = settings.OverridePrefabIconType && IsPrefab(obj);
+            if (usesPrefabOverride)
             {
                 iconType = settings.PrefabIconType;
             }
 
-            return iconType != HierarchyColorSettings.ScriptIconType.UnityDefault &&
-                   content != null && content.image != null;
+            if (iconType == HierarchyColorSettings.ScriptIconType.UnityDefault ||
+                content == null || content.image == null)
+            {
+                return false;
+            }
+
+            if (customIconOnly && !usesPrefabOverride && !HasCustomMainIcon(contentComponent, content))
+            {
+                return false;
+            }
+
+            return true;
         }
 
         internal static List<Component> GetVisibleComponents(GameObject obj)
@@ -210,7 +235,7 @@ namespace VMFramework.HierarchyColor
         }
 
         private static HierarchyColorSettings.ScriptIconType GetMainIconType(IReadOnlyList<Component> components,
-            ref GUIContent content)
+            ref GUIContent content, ref Component contentComponent)
         {
             var settings = HierarchyColorSettings.instance;
             int componentsLength = components.Count;
@@ -227,6 +252,7 @@ namespace VMFramework.HierarchyColor
                     return settings.ContainsUnityScriptsOnly;
                 }
 
+                contentComponent = component;
                 content = component != null
                     ? GetContent(component.GetType(), component)
                     : GetContent(typeof(Component));
@@ -245,13 +271,6 @@ namespace VMFramework.HierarchyColor
             }
 
             return settings.ContainsNoScripts;
-        }
-
-        private static GUIContent GetTopComponentContent(IReadOnlyList<Component> components)
-        {
-            var component = GetTopComponent(components);
-            var componentType = component != null ? component.GetType() : typeof(Component);
-            return GetContent(componentType, component);
         }
 
         private static Component GetTopComponent(IReadOnlyList<Component> components)
@@ -278,6 +297,21 @@ namespace VMFramework.HierarchyColor
             content.text = null;
             content.tooltip = HierarchyColorSettings.instance.EnableHierarchyIconTooltips ? type.Name : "";
             return content;
+        }
+
+        private static bool HasCustomMainIcon(Component component, GUIContent content)
+        {
+            if (component == null || content?.image == null)
+            {
+                return false;
+            }
+
+            if (IsNamespaceUnityRelated(component))
+            {
+                return false;
+            }
+
+            return !HasDefaultScriptIcon(content);
         }
 
         private static bool HasCustomScripts(IReadOnlyList<Component> components, out Component customComponent)

@@ -300,7 +300,7 @@ namespace VMFramework.HierarchyColor
                 return;
             }
 
-            if (!HierarchyComponentIcon.TryGetMainIconContent(gameObject, out var content, out var iconType))
+            if (!HierarchyComponentIcon.TryGetCustomMainIconContent(gameObject, out var content, out var iconType))
             {
                 return;
             }
