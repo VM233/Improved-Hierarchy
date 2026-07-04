@@ -1,8 +1,8 @@
 {
   "name": "com.vm233.hierarchy-color",
   "version": "1.0.0",
-  "displayName": "Hierarchy Color",
-  "description": "Unity editor extension for coloring Hierarchy items and showing component icons.",
+  "displayName": "Improved Hierarchy",
+  "description": "Unity editor extension for coloring Hierarchy items, showing component icons, and improving main object icons.",
   "unity": "6000.0",
   "author": {
     "name": "VM233"

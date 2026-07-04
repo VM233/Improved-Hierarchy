@@ -30,6 +30,18 @@ namespace VMFramework.HierarchyColor
             typeof(Transform), typeof(ParticleSystemRenderer), typeof(CanvasRenderer),
         };
 
+        private static readonly HashSet<string> commonMainIconTypeNames = new()
+        {
+            "UnityEngine.Camera",
+            "UnityEngine.Light",
+            "UnityEngine.AudioSource",
+            "UnityEngine.AudioListener",
+            "UnityEngine.Canvas",
+            "UnityEngine.EventSystems.EventSystem",
+            "UnityEngine.EventSystems.StandaloneInputModule",
+            "UnityEngine.InputSystem.UI.InputSystemUIInputModule",
+        };
+
         private static Transform offsetObject = null;
         private static int offset = 0;
         private static readonly HashSet<int> additionalSelectedInstanceIDs = new();
@@ -186,15 +198,25 @@ namespace VMFramework.HierarchyColor
                 return false;
             }
 
-            contentComponent = GetTopComponent(components);
-            content = GetContent(contentComponent != null ? contentComponent.GetType() : typeof(Component),
-                contentComponent);
-            if (content == null || content.image == null)
+            if (!TryGetCommonMainIconContent(components, out contentComponent, out content))
             {
-                return false;
+                contentComponent = GetTopComponent(components);
+                content = GetContent(contentComponent != null ? contentComponent.GetType() : typeof(Component),
+                    contentComponent);
+                if (content == null || content.image == null)
+                {
+                    return false;
+                }
+
+                iconType = GetMainIconType(components, ref content, ref contentComponent);
+            }
+            else
+            {
+                iconType = IsNamespaceUnityRelated(contentComponent)
+                    ? settings.ContainsUnityScriptsOnly
+                    : settings.ContainsNonUnityScripts;
             }
 
-            iconType = GetMainIconType(components, ref content, ref contentComponent);
             bool usesPrefabOverride = settings.OverridePrefabIconType && IsPrefab(obj);
             if (usesPrefabOverride)
             {
@@ -213,6 +235,39 @@ namespace VMFramework.HierarchyColor
             }
 
             return true;
+        }
+
+        private static bool TryGetCommonMainIconContent(IReadOnlyList<Component> components,
+            out Component component, out GUIContent content)
+        {
+            component = null;
+            content = null;
+
+            foreach (var candidate in components)
+            {
+                if (candidate == null)
+                {
+                    continue;
+                }
+
+                var type = candidate.GetType();
+                if (!commonMainIconTypeNames.Contains(type.FullName))
+                {
+                    continue;
+                }
+
+                var candidateContent = GetContent(type, candidate);
+                if (!HasMainIconOverride(candidate, candidateContent))
+                {
+                    continue;
+                }
+
+                component = candidate;
+                content = candidateContent;
+                return true;
+            }
+
+            return false;
         }
 
         internal static List<Component> GetVisibleComponents(GameObject obj)
