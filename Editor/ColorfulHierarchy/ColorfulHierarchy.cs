@@ -18,8 +18,6 @@ namespace VMFramework.HierarchyColor
         private const string NEW_HIERARCHY_LEFT_CUSTOM_SECTION_CLASS = "hierarchy-item__left-custom-section";
         private const string NEW_HIERARCHY_ICON_ROOT_CLASS = "hierarchy-color-component-icons";
 
-        private static readonly HashSet<int> scheduledWindowIDs = new();
-
         private static FieldInfo viewItemField;
         private static FieldInfo nodeField;
         private static FieldInfo handlerField;
@@ -29,7 +27,7 @@ namespace VMFramework.HierarchyColor
         static ColorfulHierarchy()
         {
             EditorApplication.hierarchyWindowItemByEntityIdOnGUI += OnHierarchyWindow;
-            EditorApplication.update += AttachToNewHierarchyWindows;
+            EditorApplication.update += ApplyToNewHierarchyWindows;
             EditorApplication.hierarchyChanged += RepaintNewHierarchyWindows;
         }
 
@@ -75,7 +73,7 @@ namespace VMFramework.HierarchyColor
             }
         }
 
-        private static void AttachToNewHierarchyWindows()
+        private static void ApplyToNewHierarchyWindows()
         {
             foreach (var window in Resources.FindObjectsOfTypeAll<EditorWindow>())
             {
@@ -84,13 +82,7 @@ namespace VMFramework.HierarchyColor
                     continue;
                 }
 
-                int windowID = window.GetInstanceID();
-                if (!scheduledWindowIDs.Add(windowID))
-                {
-                    continue;
-                }
-
-                window.rootVisualElement.schedule.Execute(() => ApplyToNewHierarchyWindow(window)).Every(200);
+                ApplyToNewHierarchyWindow(window);
             }
         }
 
@@ -132,9 +124,10 @@ namespace VMFramework.HierarchyColor
             }
 
             string objectName = gameObject != null ? gameObject.name : label.text;
+            ClearNewHierarchyRow(row, label, objectName);
+
             if (!TryGetPreset(objectName, out var preset))
             {
-                ClearNewHierarchyRow(row, label, objectName);
                 DrawNewHierarchyComponentIcons(row, gameObject);
                 return;
             }
