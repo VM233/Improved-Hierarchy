@@ -15,9 +15,11 @@ namespace VMFramework.HierarchyColor
         private const string NEW_HIERARCHY_ROW_NAME = "unity-multi-column-view__row-container";
         private const string NEW_HIERARCHY_ITEM_CONTAINER_TYPE_NAME = "Unity.Hierarchy.HierarchyViewItemContainer";
         private const string NEW_HIERARCHY_NAME_CLASS = "hierarchy-item__name";
+        private const string NEW_HIERARCHY_DEFAULT_ICON_CLASS = "hierarchy-item__icon";
         private const string NEW_HIERARCHY_LEFT_CUSTOM_SECTION_CLASS = "hierarchy-item__left-custom-section";
         private const string NEW_HIERARCHY_ICON_ROOT_CLASS = "hierarchy-color-component-icons";
         private const string NEW_HIERARCHY_MAIN_ICON_CLASS = "hierarchy-color-main-component-icon";
+        private const string NEW_HIERARCHY_MAIN_ICON_HOST_CLASS = "hierarchy-color-main-component-icon-host";
 
         private static FieldInfo viewItemField;
         private static FieldInfo nodeField;
@@ -277,6 +279,8 @@ namespace VMFramework.HierarchyColor
                 return;
             }
 
+            DrawNewHierarchyMainComponentIcon(row, gameObject);
+
             var customSection = FindFirst(row,
                 element => element.ClassListContains(NEW_HIERARCHY_LEFT_CUSTOM_SECTION_CLASS));
             if (customSection == null)
@@ -284,12 +288,18 @@ namespace VMFramework.HierarchyColor
                 return;
             }
 
-            DrawNewHierarchyMainComponentIcon(customSection, gameObject);
             DrawNewHierarchyVisibleComponentIcons(customSection, gameObject);
         }
 
-        private static void DrawNewHierarchyMainComponentIcon(VisualElement customSection, GameObject gameObject)
+        private static void DrawNewHierarchyMainComponentIcon(VisualElement row, GameObject gameObject)
         {
+            var defaultIcon = FindFirst(row,
+                element => element.ClassListContains(NEW_HIERARCHY_DEFAULT_ICON_CLASS));
+            if (defaultIcon == null)
+            {
+                return;
+            }
+
             if (!HierarchyComponentIcon.TryGetMainIconContent(gameObject, out var content, out var iconType))
             {
                 return;
@@ -299,19 +309,18 @@ namespace VMFramework.HierarchyColor
                 ? 10
                 : HierarchyComponentIcon.IconSize;
 
-            var image = new Image
-            {
-                image = content.image,
-                tooltip = content.tooltip,
-                pickingMode = PickingMode.Ignore,
-                name = NEW_HIERARCHY_MAIN_ICON_CLASS
-            };
+            var image = CreateNewHierarchyIconImage(content.image, iconSize);
+            image.tooltip = content.tooltip;
+            image.name = NEW_HIERARCHY_MAIN_ICON_CLASS;
             image.AddToClassList(NEW_HIERARCHY_MAIN_ICON_CLASS);
-            image.style.width = iconSize;
-            image.style.height = iconSize;
-            image.style.marginLeft = 1;
+            image.style.position = Position.Absolute;
+            image.style.left = (HierarchyComponentIcon.IconSize - iconSize) * 0.5f;
+            image.style.top = (HierarchyComponentIcon.IconSize - iconSize) * 0.5f;
             image.style.opacity = gameObject.activeInHierarchy ? 1f : 0.5f;
-            customSection.Add(image);
+
+            defaultIcon.AddToClassList(NEW_HIERARCHY_MAIN_ICON_HOST_CLASS);
+            defaultIcon.style.unityBackgroundImageTintColor = Color.clear;
+            defaultIcon.Add(image);
         }
 
         private static void DrawNewHierarchyVisibleComponentIcons(VisualElement customSection, GameObject gameObject)
@@ -332,6 +341,8 @@ namespace VMFramework.HierarchyColor
             iconRoot.style.flexDirection = FlexDirection.Row;
             iconRoot.style.marginLeft = 4;
             iconRoot.style.height = iconSize;
+            iconRoot.style.minHeight = iconSize;
+            iconRoot.style.flexShrink = 0;
 
             int count = Mathf.Min(components.Count, HierarchyComponentIcon.MaxIconNum);
             for (int i = 0; i < count; i++)
@@ -342,13 +353,7 @@ namespace VMFramework.HierarchyColor
                     continue;
                 }
 
-                var image = new Image
-                {
-                    image = texture,
-                    pickingMode = PickingMode.Ignore
-                };
-                image.style.width = iconSize;
-                image.style.height = iconSize;
+                var image = CreateNewHierarchyIconImage(texture, iconSize);
                 image.style.marginLeft = 1;
                 iconRoot.Add(image);
             }
@@ -374,6 +379,32 @@ namespace VMFramework.HierarchyColor
             {
                 iconRoot.RemoveFromHierarchy();
             }
+
+            var mainIconHosts = new List<VisualElement>(FindAll(row,
+                element => element.ClassListContains(NEW_HIERARCHY_MAIN_ICON_HOST_CLASS)));
+            foreach (var iconHost in mainIconHosts)
+            {
+                iconHost.RemoveFromClassList(NEW_HIERARCHY_MAIN_ICON_HOST_CLASS);
+                iconHost.style.unityBackgroundImageTintColor = StyleKeyword.Null;
+            }
+        }
+
+        private static Image CreateNewHierarchyIconImage(Texture texture, int iconSize)
+        {
+            var image = new Image
+            {
+                image = texture,
+                scaleMode = ScaleMode.ScaleToFit,
+                pickingMode = PickingMode.Ignore
+            };
+
+            image.style.width = iconSize;
+            image.style.height = iconSize;
+            image.style.minWidth = iconSize;
+            image.style.minHeight = iconSize;
+            image.style.flexShrink = 0;
+
+            return image;
         }
 
         private static VisualElement FindFirst(VisualElement root, Func<VisualElement, bool> predicate)
