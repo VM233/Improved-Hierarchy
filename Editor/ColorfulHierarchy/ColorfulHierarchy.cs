@@ -34,17 +34,25 @@ namespace VMFramework.HierarchyColor
         private static FieldInfo handlerField;
         private static MethodInfo getGameObjectMethod;
         private static Type getGameObjectMethodHandlerType;
-        private static readonly HashSet<int> scheduledNewHierarchyWindowIDs = new();
+        private static readonly HashSet<long> scheduledNewHierarchyWindowIDs = new();
         private static readonly Dictionary<VisualElement, NewHierarchyRowStyleState> newHierarchyRowStyleStates = new();
 
         static ColorfulHierarchy()
         {
+#if UNITY_6000_4_OR_NEWER
             EditorApplication.hierarchyWindowItemByEntityIdOnGUI += OnHierarchyWindow;
+#else
+            EditorApplication.hierarchyWindowItemOnGUI += OnHierarchyWindow;
+#endif
             EditorApplication.update += ApplyToNewHierarchyWindows;
             EditorApplication.hierarchyChanged += RepaintNewHierarchyWindows;
         }
 
-        private static void OnHierarchyWindow(EntityId instanceID, Rect selectionRect)
+#if UNITY_6000_4_OR_NEWER
+        private static void OnHierarchyWindow(EntityId entityID, Rect selectionRect)
+#else
+        private static void OnHierarchyWindow(int instanceID, Rect selectionRect)
+#endif
         {
             var settings = HierarchyColorSettings.instance;
             if (!settings.EnableHighlight)
@@ -52,7 +60,11 @@ namespace VMFramework.HierarchyColor
                 return;
             }
 
-            var instance = EditorUtility.EntityIdToObject(instanceID);
+#if UNITY_6000_4_OR_NEWER
+            var instance = EditorUtility.EntityIdToObject(entityID);
+#else
+            var instance = EditorUtility.InstanceIDToObject(instanceID);
+#endif
 
             if (instance == null)
             {
@@ -129,7 +141,7 @@ namespace VMFramework.HierarchyColor
 
         private static void EnsureNewHierarchyWindowScheduled(EditorWindow window)
         {
-            int windowID = window.GetInstanceID();
+            long windowID = GetObjectID(window);
             if (!scheduledNewHierarchyWindowIDs.Add(windowID))
             {
                 return;
@@ -145,6 +157,15 @@ namespace VMFramework.HierarchyColor
 
                 ApplyToNewHierarchyRows(window.rootVisualElement);
             }).Every(NEW_HIERARCHY_REFRESH_INTERVAL_MS);
+        }
+
+        private static long GetObjectID(UnityEngine.Object obj)
+        {
+#if UNITY_6000_5_OR_NEWER
+            return (long)EntityId.ToULong(obj.GetEntityId());
+#else
+            return obj.GetInstanceID();
+#endif
         }
 
         private static void ApplyToNewHierarchyRows(VisualElement root)

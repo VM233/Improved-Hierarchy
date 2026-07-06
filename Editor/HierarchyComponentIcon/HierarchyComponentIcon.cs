@@ -44,7 +44,11 @@ namespace VMFramework.HierarchyColor
 
         private static Transform offsetObject = null;
         private static int offset = 0;
-        private static readonly HashSet<int> additionalSelectedInstanceIDs = new();
+#if UNITY_6000_5_OR_NEWER
+        private static readonly HashSet<EntityId> additionalSelectedObjectIDs = new();
+#else
+        private static readonly HashSet<int> additionalSelectedObjectIDs = new();
+#endif
         private static bool hierarchyHasFocus;
         private static EditorWindow hierarchyEditorWindow;
         private static bool isMouseDown;
@@ -52,15 +56,28 @@ namespace VMFramework.HierarchyColor
         [InitializeOnLoadMethod]
         public static void Init()
         {
+#if UNITY_6000_4_OR_NEWER
             EditorApplication.hierarchyWindowItemByEntityIdOnGUI -= HierarchyComponentIconGUI;
             EditorApplication.hierarchyWindowItemByEntityIdOnGUI += HierarchyComponentIconGUI;
+#else
+            EditorApplication.hierarchyWindowItemOnGUI -= HierarchyComponentIconGUI;
+            EditorApplication.hierarchyWindowItemOnGUI += HierarchyComponentIconGUI;
+#endif
             EditorApplication.update -= OnEditorUpdate;
             EditorApplication.update += OnEditorUpdate;
         }
 
-        public static void HierarchyComponentIconGUI(EntityId instanceID, Rect rect)
+#if UNITY_6000_4_OR_NEWER
+        public static void HierarchyComponentIconGUI(EntityId entityID, Rect rect)
+#else
+        public static void HierarchyComponentIconGUI(int instanceID, Rect rect)
+#endif
         {
-            var tempObj = EditorUtility.EntityIdToObject(instanceID);
+#if UNITY_6000_4_OR_NEWER
+            var tempObj = EditorUtility.EntityIdToObject(entityID);
+#else
+            var tempObj = EditorUtility.InstanceIDToObject(instanceID);
+#endif
             if (!tempObj)
             {
                 return;
@@ -506,7 +523,7 @@ namespace VMFramework.HierarchyColor
 
             hierarchyHasFocus = EditorWindow.focusedWindow != null &&
                                 EditorWindow.focusedWindow == hierarchyEditorWindow;
-            additionalSelectedInstanceIDs.Clear();
+            additionalSelectedObjectIDs.Clear();
         }
 
         private static bool IsHierarchyWindowFocused()
@@ -527,7 +544,7 @@ namespace VMFramework.HierarchyColor
 
             return new HierarchyObjectStatus
             {
-                IsSelected = Array.IndexOf(Selection.instanceIDs, obj.GetInstanceID()) >= 0,
+                IsSelected = IsObjectSelected(obj),
                 IsHovered = Event.current != null && entireRowRect.Contains(Event.current.mousePosition),
                 IsDropDownHovered = Event.current != null && expandChildrenIconRect.Contains(Event.current.mousePosition)
             };
@@ -536,32 +553,58 @@ namespace VMFramework.HierarchyColor
         private static void UpdateSelectedObjectsList(GameObject obj, HierarchyObjectStatus objectStatus)
         {
             UpdateMouseEventState();
-            int instanceID = obj.GetInstanceID();
+            var objectID = GetObjectID(obj);
             if (objectStatus.IsSelected || (objectStatus.IsDropDownHovered && isMouseDown))
             {
-                if (Selection.instanceIDs.Length > 1)
+                if (SelectedObjectCount > 1)
                 {
-                    additionalSelectedInstanceIDs.Clear();
+                    additionalSelectedObjectIDs.Clear();
                 }
 
-                additionalSelectedInstanceIDs.Add(instanceID);
+                additionalSelectedObjectIDs.Add(objectID);
             }
             else
             {
-                additionalSelectedInstanceIDs.Remove(instanceID);
+                additionalSelectedObjectIDs.Remove(objectID);
             }
         }
 
         private static void ClearOriginalIcon(HierarchyObjectStatus objectStatus, Rect selectionRect)
         {
-            int selectedAmount = Selection.instanceIDs.Length > 1
-                ? Selection.instanceIDs.Length
-                : additionalSelectedInstanceIDs.Count;
+            int selectedAmount = SelectedObjectCount > 1
+                ? SelectedObjectCount
+                : additionalSelectedObjectIDs.Count;
 
             Rect backgroundRect = selectionRect;
             backgroundRect.width = HIERARCHY_ICON_WIDTH;
             EditorGUI.DrawRect(backgroundRect, GetHierarchyBackgroundColor(objectStatus, selectedAmount));
         }
+
+#if UNITY_6000_5_OR_NEWER
+        private static int SelectedObjectCount => Selection.entityIds.Length;
+
+        private static EntityId GetObjectID(GameObject obj)
+        {
+            return obj.GetEntityId();
+        }
+
+        private static bool IsObjectSelected(GameObject obj)
+        {
+            return Array.IndexOf(Selection.entityIds, GetObjectID(obj)) >= 0;
+        }
+#else
+        private static int SelectedObjectCount => Selection.instanceIDs.Length;
+
+        private static int GetObjectID(GameObject obj)
+        {
+            return obj.GetInstanceID();
+        }
+
+        private static bool IsObjectSelected(GameObject obj)
+        {
+            return Array.IndexOf(Selection.instanceIDs, GetObjectID(obj)) >= 0;
+        }
+#endif
 
         private static Color GetHierarchyBackgroundColor(HierarchyObjectStatus objectStatus, int selectedAmount)
         {
