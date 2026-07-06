@@ -298,6 +298,21 @@ namespace VMFramework.HierarchyColor
                 return false;
             }
 
+            if (state.Preset == null)
+            {
+                row.style.backgroundColor = StyleKeyword.Null;
+                if (!string.IsNullOrEmpty(state.ObjectName))
+                {
+                    label.text = state.ObjectName;
+                }
+
+                label.style.color = StyleKeyword.Null;
+                label.style.unityFontStyleAndWeight = StyleKeyword.Null;
+                label.style.unityTextAlign = StyleKeyword.Null;
+                ClearNewHierarchyComponentIcons(row);
+                return true;
+            }
+
             ApplyNewHierarchyPreset(row, label, state.ObjectName, state.Preset, out _);
             return true;
         }
