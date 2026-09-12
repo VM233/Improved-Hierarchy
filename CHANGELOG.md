@@ -2,6 +2,12 @@
 
 All notable changes to this package are documented in this file.
 
+## [1.0.3] - 2026-09-13
+
+### Fixed
+
+- Retire the component-reordering test's Undo group before destroying its fixture, preventing Unity Test Runner's later Undo cleanup from recreating the test GameObject in the caller's scene.
+
 ## [1.0.2] - 2026-09-13
 
 ### Fixed

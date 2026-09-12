@@ -84,9 +84,20 @@ namespace VMFramework.HierarchyColor.Tests
             var added = Draw();
             Assert.That(added, Is.Not.SameAs(before));
             Assert.That(before.parent, Is.Null);
-            Assert.That(UnityEditorInternal.ComponentUtility.MoveComponentUp(body), Is.True);
-            var reordered = Draw();
-            Assert.That(reordered, Is.Not.SameAs(added));
+            Undo.IncrementCurrentGroup();
+            int undoGroup = Undo.GetCurrentGroup();
+            VisualElement reordered;
+            try
+            {
+                Assert.That(UnityEditorInternal.ComponentUtility.MoveComponentUp(body), Is.True);
+                reordered = Draw();
+                Assert.That(reordered, Is.Not.SameAs(added));
+            }
+            finally
+            {
+                // Unity Test Runner reverts Undo after TearDown. Consume this record while its object lives.
+                Undo.RevertAllDownToGroup(undoGroup);
+            }
             Object.DestroyImmediate(body);
             var removed = Draw();
             Assert.That(removed, Is.Not.SameAs(reordered));
