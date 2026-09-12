@@ -1,88 +1,60 @@
 #if UNITY_EDITOR
-using System;
-using System.Reflection;
 using UnityEngine;
 using UnityEngine.UIElements;
+#if UNITY_6000_6_OR_NEWER
+using Unity.Hierarchy;
+using Unity.Hierarchy.Editor;
+#else
+using System;
+using System.Reflection;
+#endif
 
 namespace VMFramework.HierarchyColor
 {
     internal static class NewHierarchyReflection
     {
+#if UNITY_6000_6_OR_NEWER
+        public static GameObject GetGameObject(VisualElement row)
+        {
+            var item = VisualElementSearchUtility.FindFirst(row,
+                element => element is HierarchyViewItem) as HierarchyViewItem;
+            return item?.View != null && item.Handler is HierarchyGameObjectHandler handler
+                ? handler.GetGameObject(in item.Node) : null;
+        }
+#else
         private static FieldInfo viewItemField;
         private static FieldInfo nodeField;
         private static FieldInfo handlerField;
         private static MethodInfo getGameObjectMethod;
-        private static Type getGameObjectMethodHandlerType;
+        private static readonly object[] arguments = new object[1];
 
         public static GameObject GetGameObject(VisualElement row)
         {
-            try
-            {
-                var itemContainer = VisualElementSearchUtility.FindFirst(row,
-                    element => element.GetType().FullName == NewHierarchyConstants.ItemContainerTypeName);
-                if (itemContainer == null)
-                {
-                    return null;
-                }
-
-                EnsureItemContainerReflection(itemContainer.GetType());
-
-                var viewItem = viewItemField?.GetValue(itemContainer);
-                if (viewItem == null)
-                {
-                    return null;
-                }
-
-                var node = nodeField?.GetValue(viewItem);
-                var handler = handlerField?.GetValue(viewItem);
-                if (node == null || handler == null)
-                {
-                    return null;
-                }
-
-                EnsureHandlerReflection(handler.GetType());
-                if (getGameObjectMethod == null)
-                {
-                    return null;
-                }
-
-                object[] args = { node };
-                return getGameObjectMethod.Invoke(handler, args) as GameObject;
-            }
-            catch
-            {
+            var container = VisualElementSearchUtility.FindFirst(row,
+                element => element.GetType().FullName == NewHierarchyConstants.ItemContainerTypeName);
+            if (container == null) return null;
+            viewItemField ??= RequiredField(container.GetType(), "m_ViewItem");
+            var item = viewItemField.GetValue(container);
+            if (item == null) return null;
+            nodeField ??= RequiredField(item.GetType(), "m_Node");
+            handlerField ??= RequiredField(item.GetType(), "m_Handler");
+            var handler = handlerField.GetValue(item);
+            // Scene and other node handlers deliberately have no GameObject projection.
+            if (handler == null || handler.GetType().FullName != "Unity.Hierarchy.Editor.HierarchyGameObjectHandler")
                 return null;
-            }
+            getGameObjectMethod ??= handler.GetType().GetMethod("GetGameObject",
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+                ?? throw new MissingMethodException(handler.GetType().FullName, "GetGameObject");
+            arguments[0] = nodeField.GetValue(item);
+            return (GameObject)getGameObjectMethod.Invoke(handler, arguments);
         }
 
-        private static void EnsureItemContainerReflection(Type itemContainerType)
+        private static FieldInfo RequiredField(Type type, string name)
         {
-            viewItemField ??= itemContainerType.GetField("m_ViewItem",
-                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-
-            var viewItemType = viewItemField?.FieldType;
-            if (viewItemType == null)
-            {
-                return;
-            }
-
-            nodeField ??= viewItemType.GetField("m_Node",
-                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-            handlerField ??= viewItemType.GetField("m_Handler",
-                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            return type.GetField(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+                   ?? throw new MissingFieldException(type.FullName, name);
         }
-
-        private static void EnsureHandlerReflection(Type handlerType)
-        {
-            if (getGameObjectMethodHandlerType == handlerType)
-            {
-                return;
-            }
-
-            getGameObjectMethodHandlerType = handlerType;
-            getGameObjectMethod = handlerType.GetMethod("GetGameObject",
-                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-        }
+#endif
     }
 }
 #endif

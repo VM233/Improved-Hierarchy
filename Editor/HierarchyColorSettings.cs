@@ -70,6 +70,8 @@ namespace VMFramework.HierarchyColor
         [SerializeField]
         private bool enableHierarchyIconTooltips = true;
 
+        internal ulong PresentationRevision { get; private set; }
+
         public IReadOnlyList<HierarchyColorPreset> ColorPresets
         {
             get
@@ -199,11 +201,13 @@ namespace VMFramework.HierarchyColor
         private void OnEnable()
         {
             EnsureInitialized();
+            PublishPresentationChange();
         }
 
         private void OnValidate()
         {
             NormalizeValues();
+            PublishPresentationChange();
         }
 
         internal void EnsureInitialized()
@@ -221,8 +225,14 @@ namespace VMFramework.HierarchyColor
         internal void SaveSettings()
         {
             EnsureInitialized();
+            PublishPresentationChange();
             EditorUtility.SetDirty(this);
             Save(true);
+        }
+
+        internal void PublishPresentationChange()
+        {
+            PresentationRevision++;
         }
 
         private void AddDefaultColorPresets()

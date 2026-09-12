@@ -9,45 +9,72 @@ namespace VMFramework.HierarchyColor
 {
     internal static class NewHierarchyWindowController
     {
-        private static readonly HashSet<long> scheduledWindowIDs = new();
-        private static readonly Dictionary<long, List<VisualElement>> windowRows = new();
+        private sealed class WindowPresentation
+        {
+            private readonly EditorWindow window;
+            private readonly VisualElement root;
+            private readonly IVisualElementScheduledItem scheduled;
+            private List<VisualElement> rows = new();
+
+            internal WindowPresentation(EditorWindow window)
+            {
+                this.window = window;
+                root = window.rootVisualElement;
+                root.RegisterCallback<DetachFromPanelEvent>(OnDetached);
+                scheduled = root.schedule.Execute(ApplyRows).Every(NewHierarchyConstants.RefreshIntervalMs);
+            }
+
+            internal void RefreshRows()
+            {
+                rows = root.Query<VisualElement>(name: NewHierarchyConstants.RowName).ToList();
+                ApplyRows();
+            }
+
+            private void ApplyRows()
+            {
+                foreach (var row in rows)
+                    if (row.panel != null) NewHierarchyRowRenderer.Apply(row);
+            }
+
+            private void OnDetached(DetachFromPanelEvent evt)
+            {
+                if (evt.target != root) return;
+                scheduled.Pause();
+                root.UnregisterCallback<DetachFromPanelEvent>(OnDetached);
+                foreach (var row in rows) NewHierarchyRowRenderer.RemoveFromCache(row);
+                rows.Clear();
+                windows.Remove(window);
+            }
+        }
+
+        private static readonly Dictionary<EditorWindow, WindowPresentation> windows = new();
         private static Type hierarchyWindowType;
         private static double nextWindowScanTime;
 
         public static void UpdateWhenDue()
         {
-            if (EditorApplication.timeSinceStartup < nextWindowScanTime)
-            {
-                return;
-            }
-
-            nextWindowScanTime = EditorApplication.timeSinceStartup +
-                                 NewHierarchyConstants.WindowScanIntervalSeconds;
+            if (EditorApplication.timeSinceStartup < nextWindowScanTime) return;
+            nextWindowScanTime = EditorApplication.timeSinceStartup + NewHierarchyConstants.WindowScanIntervalSeconds;
             ApplyToWindows();
         }
 
         public static void RepaintAll()
         {
-            windowRows.Clear();
-            NewHierarchyRowRenderer.ClearCache();
-
-            foreach (var windowObject in FindHierarchyWindows())
-            {
-                if (windowObject is EditorWindow window)
-                {
-                    ApplyToWindow(window);
-                }
-            }
+            ApplyToWindows();
         }
 
         private static void ApplyToWindows()
         {
             foreach (var windowObject in FindHierarchyWindows())
             {
-                if (windowObject is EditorWindow window)
+                var window = (EditorWindow)windowObject;
+                if (window.rootVisualElement.panel == null) continue;
+                if (!windows.TryGetValue(window, out var presentation))
                 {
-                    ApplyToWindow(window);
+                    presentation = new WindowPresentation(window);
+                    windows.Add(window, presentation);
                 }
+                presentation.RefreshRows();
             }
         }
 
@@ -62,78 +89,8 @@ namespace VMFramework.HierarchyColor
         private static Type FindHierarchyWindowType()
         {
             foreach (var type in TypeCache.GetTypesDerivedFrom<EditorWindow>())
-            {
-                if (type.FullName == NewHierarchyConstants.WindowTypeName)
-                {
-                    return type;
-                }
-            }
-
+                if (type.FullName == NewHierarchyConstants.WindowTypeName) return type;
             return null;
-        }
-
-        private static void ApplyToWindow(EditorWindow window)
-        {
-            if (window == null || window.rootVisualElement == null)
-            {
-                return;
-            }
-
-            long windowID = HierarchyEditorObjectUtility.GetObjectID(window);
-            EnsureWindowScheduled(window, windowID);
-            RefreshRowsCache(windowID, window.rootVisualElement);
-            ApplyToCachedRows(windowID, window.rootVisualElement);
-        }
-
-        private static void EnsureWindowScheduled(EditorWindow window, long windowID)
-        {
-            if (!scheduledWindowIDs.Add(windowID))
-            {
-                return;
-            }
-
-            window.rootVisualElement.schedule.Execute(() =>
-            {
-                if (window == null || window.rootVisualElement == null)
-                {
-                    scheduledWindowIDs.Remove(windowID);
-                    windowRows.Remove(windowID);
-                    return;
-                }
-
-                ApplyToCachedRows(windowID, window.rootVisualElement);
-            }).Every(NewHierarchyConstants.RefreshIntervalMs);
-        }
-
-        private static void RefreshRowsCache(long windowID, VisualElement root)
-        {
-            windowRows[windowID] = root.Query<VisualElement>(name: NewHierarchyConstants.RowName).ToList();
-        }
-
-        private static void ApplyToCachedRows(long windowID, VisualElement root)
-        {
-            if (!windowRows.TryGetValue(windowID, out var rows) || rows.Count == 0)
-            {
-                RefreshRowsCache(windowID, root);
-                rows = windowRows[windowID];
-            }
-
-            for (int i = rows.Count - 1; i >= 0; i--)
-            {
-                var row = rows[i];
-                if (row == null || row.panel == null)
-                {
-                    if (row != null)
-                    {
-                        NewHierarchyRowRenderer.RemoveFromCache(row);
-                    }
-
-                    rows.RemoveAt(i);
-                    continue;
-                }
-
-                NewHierarchyRowRenderer.Apply(row);
-            }
         }
     }
 }

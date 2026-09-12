@@ -36,4 +36,4 @@ Or add it to `Packages/manifest.json`:
 Open `Preferences > Improved Hierarchy` to configure color presets, component icon display,
 and main icon rules.
 
-Hierarchy discovery and icon cleanup use UI Toolkit queries with result snapshots before tree mutation. They retain the existing row-cache invalidation and rendering behavior. See `Documentation~/hierarchy-query-cost.md` for the measured allocation problem and validation scope.
+Hierarchy discovery and icon cleanup use UI Toolkit queries with result snapshots before tree mutation. Unchanged rows keep their icons across hierarchy refreshes. Object, component, active-state and settings changes update their presentation, and detached rows and windows release their caches and scheduled work. See `Documentation~/hierarchy-row-lifecycle.md` for the ownership and performance validation scope, and `Documentation~/hierarchy-query-cost.md` for the earlier query-allocation repair.

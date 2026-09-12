@@ -2,6 +2,16 @@
 
 All notable changes to this package are documented in this file.
 
+## [1.0.2] - 2026-09-13
+
+### Fixed
+
+- Retain unchanged row icons across native hierarchy refreshes, and rebuild from actual object, component, active-state and settings changes.
+- Release row caches and scheduled window refreshes when their UI detaches.
+- Restore prefix-formatted names after Unity rebinds a row, including names with leading whitespace.
+- Use the public Unity 6000.6 hierarchy object API, and report broken internal contracts on older supported versions instead of showing stale cached objects.
+- Cover row recycling, component changes, settings invalidation, detach and unchanged-pass allocations with focused tests.
+
 ## [1.0.1] - 2026-09-13
 
 ### Fixed

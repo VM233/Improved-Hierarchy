@@ -7,156 +7,102 @@ namespace VMFramework.HierarchyColor
 {
     internal static class NewHierarchyRowRenderer
     {
-        private struct RowStyleState
+        private sealed class RowStyleState
         {
-            public long ObjectID;
+            public GameObject Object;
             public string ObjectName;
             public string DisplayName;
-            public int SettingsHash;
+            public ulong SettingsRevision;
             public bool ActiveInHierarchy;
-            public HierarchyColorPreset Preset;
+            public Label Label;
+            public readonly List<Component> Components = new();
         }
 
         private static readonly Dictionary<VisualElement, RowStyleState> rowStyleStates = new();
-
-        public static void ClearCache()
-        {
-            rowStyleStates.Clear();
-        }
+        private static readonly List<Component> componentScratch = new();
 
         public static void RemoveFromCache(VisualElement row)
         {
-            rowStyleStates.Remove(row);
+            if (!rowStyleStates.Remove(row, out var state)) return;
+            row.UnregisterCallback<DetachFromPanelEvent>(OnRowDetached);
+            ClearStyle(row, state.Label, state.Object == null ? null : state.Object.name);
+            NewHierarchyIconRenderer.Clear(row);
+        }
+
+        private static void OnRowDetached(DetachFromPanelEvent evt)
+        {
+            if (evt.target == evt.currentTarget) RemoveFromCache((VisualElement)evt.currentTarget);
         }
 
         public static void Apply(VisualElement row)
         {
-            var gameObject = NewHierarchyReflection.GetGameObject(row);
-            var label = FindNameLabel(row);
+            Apply(row, NewHierarchyReflection.GetGameObject(row), FindNameLabel(row));
+        }
 
-            if (label == null)
+        internal static void Apply(VisualElement row, GameObject gameObject, Label label)
+        {
+            if (gameObject == null || label == null)
             {
-                Clear(row, null, null);
+                // A native scene/unbound row keeps its own label, never the previous object's name.
+                string nativeName = label?.text;
+                RemoveFromCache(row);
+                if (label != null) label.text = nativeName;
                 return;
             }
 
-            string objectName = gameObject != null ? gameObject.name : label.text;
-            int settingsHash = GetSettingsHash();
-            if (TrySkipUnchanged(row, gameObject, label, objectName, settingsHash))
+            string objectName = gameObject.name;
+            var settings = HierarchyColorSettings.instance;
+            gameObject.GetComponents(componentScratch);
+            if (rowStyleStates.TryGetValue(row, out var state) &&
+                state.Object == gameObject && state.Label == label && state.ObjectName == objectName &&
+                state.SettingsRevision == settings.PresentationRevision &&
+                state.ActiveInHierarchy == gameObject.activeInHierarchy &&
+                ComponentsMatch(state.Components, componentScratch))
             {
+                if (label.text != state.DisplayName) label.text = state.DisplayName;
+                componentScratch.Clear();
                 return;
             }
 
-            if (!HierarchyColorSettings.instance.EnableHighlight)
+            if (state == null)
             {
-                string originalName = objectName;
-                if (gameObject == null && rowStyleStates.TryGetValue(row, out var state))
-                {
-                    originalName = state.ObjectName;
-                }
-
-                Clear(row, label, originalName);
-                NewHierarchyIconRenderer.Draw(row, gameObject);
-                Cache(row, gameObject, originalName, originalName, settingsHash, null);
-                return;
+                state = new RowStyleState();
+                rowStyleStates.Add(row, state);
+                row.RegisterCallback<DetachFromPanelEvent>(OnRowDetached);
             }
 
-            if (gameObject == null)
-            {
-                if (!TryApplyCached(row, label))
-                {
-                    Clear(row, label, label.text);
-                }
+            string displayName = objectName;
+            if (settings.EnableHighlight && HierarchyNameUtility.TryGetPreset(objectName, out var preset))
+                ApplyPreset(row, label, objectName, preset, out displayName);
+            else
+                ClearStyle(row, label, objectName);
 
-                return;
-            }
-
-            if (!HierarchyNameUtility.TryGetPreset(objectName, out var preset))
-            {
-                Clear(row, label, objectName);
-                NewHierarchyIconRenderer.Draw(row, gameObject);
-                Cache(row, gameObject, objectName, objectName, settingsHash, null);
-                return;
-            }
-
-            ApplyPreset(row, label, objectName, preset, out var displayName);
             NewHierarchyIconRenderer.Draw(row, gameObject);
-            Cache(row, gameObject, objectName, displayName, settingsHash, preset);
+            state.Object = gameObject;
+            state.ObjectName = objectName;
+            state.DisplayName = displayName;
+            state.SettingsRevision = settings.PresentationRevision;
+            state.ActiveInHierarchy = gameObject.activeInHierarchy;
+            state.Label = label;
+            state.Components.Clear();
+            state.Components.AddRange(componentScratch);
+            componentScratch.Clear();
         }
 
-        private static bool TrySkipUnchanged(VisualElement row, GameObject gameObject, Label label,
-            string objectName, int settingsHash)
+        private static bool ComponentsMatch(List<Component> previous, List<Component> current)
         {
-            if (!rowStyleStates.TryGetValue(row, out var state))
-            {
-                return false;
-            }
-
-            if (state.ObjectID != HierarchyEditorObjectUtility.GetObjectID(gameObject) ||
-                state.ObjectName != objectName ||
-                state.SettingsHash != settingsHash ||
-                state.ActiveInHierarchy != (gameObject == null || gameObject.activeInHierarchy))
-            {
-                return false;
-            }
-
-            return label.text == state.ObjectName || label.text == state.DisplayName;
-        }
-
-        private static void Cache(VisualElement row, GameObject gameObject, string objectName,
-            string displayName, int settingsHash, HierarchyColorPreset preset)
-        {
-            rowStyleStates[row] = new()
-            {
-                ObjectID = HierarchyEditorObjectUtility.GetObjectID(gameObject),
-                ObjectName = objectName,
-                DisplayName = displayName,
-                SettingsHash = settingsHash,
-                ActiveInHierarchy = gameObject == null || gameObject.activeInHierarchy,
-                Preset = preset
-            };
-        }
-
-        private static bool TryApplyCached(VisualElement row, Label label)
-        {
-            if (!rowStyleStates.TryGetValue(row, out var state))
-            {
-                return false;
-            }
-
-            if (label.text != state.ObjectName && label.text != state.DisplayName)
-            {
-                return false;
-            }
-
-            if (state.Preset == null)
-            {
-                row.style.backgroundColor = StyleKeyword.Null;
-                if (!string.IsNullOrEmpty(state.ObjectName))
-                {
-                    label.text = state.ObjectName;
-                }
-
-                label.style.color = StyleKeyword.Null;
-                label.style.unityFontStyleAndWeight = StyleKeyword.Null;
-                label.style.unityTextAlign = StyleKeyword.Null;
-                NewHierarchyIconRenderer.Clear(row);
-                return true;
-            }
-
-            ApplyPreset(row, label, state.ObjectName, state.Preset, out _);
+            if (previous.Count != current.Count) return false;
+            for (int index = 0; index < current.Count; index++)
+                if (!ReferenceEquals(previous[index], current[index])) return false;
             return true;
         }
 
         private static void ApplyPreset(VisualElement row, Label label, string objectName,
             HierarchyColorPreset preset, out string displayName)
         {
-            displayName = objectName[preset.keyChar.Length..];
-            if (preset.autoUpperLetters)
-            {
-                displayName = displayName.ToUpper();
-            }
-
+            int start = HierarchyNameUtility.GetStartIndexIgnoringWhitespace(objectName) + preset.keyChar.Length;
+            displayName = objectName[start..];
+            if (preset.autoUpperLetters) displayName = displayName.ToUpper();
             row.style.backgroundColor = preset.backgroundColor;
             label.text = displayName;
             label.style.color = preset.textColor;
@@ -164,58 +110,21 @@ namespace VMFramework.HierarchyColor
             label.style.unityTextAlign = preset.textAlignment;
         }
 
-        private static void Clear(VisualElement row, Label label, string objectName)
+        private static void ClearStyle(VisualElement row, Label label, string objectName)
         {
-            rowStyleStates.Remove(row);
             row.style.backgroundColor = StyleKeyword.Null;
-
-            if (label != null)
-            {
-                if (!string.IsNullOrEmpty(objectName))
-                {
-                    label.text = objectName;
-                }
-
-                label.style.color = StyleKeyword.Null;
-                label.style.unityFontStyleAndWeight = StyleKeyword.Null;
-                label.style.unityTextAlign = StyleKeyword.Null;
-            }
-
-            NewHierarchyIconRenderer.Clear(row);
-        }
-
-        private static int GetSettingsHash()
-        {
-            var settings = HierarchyColorSettings.instance;
-            unchecked
-            {
-                int hash = 17;
-                hash = hash * 31 + settings.EnableHighlight.GetHashCode();
-                hash = hash * 31 + settings.MaxIconNum;
-                hash = hash * 31 + settings.IconSize;
-                hash = hash * 31 + settings.ShowMainComponentIcon.GetHashCode();
-                hash = hash * 31 + settings.EnableHierarchyIconTooltips.GetHashCode();
-
-                foreach (var preset in settings.ColorPresets)
-                {
-                    hash = hash * 31 + (preset.keyChar != null ? preset.keyChar.GetHashCode() : 0);
-                    hash = hash * 31 + preset.textColor.GetHashCode();
-                    hash = hash * 31 + preset.backgroundColor.GetHashCode();
-                    hash = hash * 31 + preset.textAlignment.GetHashCode();
-                    hash = hash * 31 + preset.fontStyle.GetHashCode();
-                    hash = hash * 31 + preset.autoUpperLetters.GetHashCode();
-                }
-
-                return hash;
-            }
+            if (label == null) return;
+            if (objectName != null) label.text = objectName;
+            label.style.color = StyleKeyword.Null;
+            label.style.unityFontStyleAndWeight = StyleKeyword.Null;
+            label.style.unityTextAlign = StyleKeyword.Null;
         }
 
         private static Label FindNameLabel(VisualElement row)
         {
             var nameElement = VisualElementSearchUtility.FindFirst(row,
                 element => element.ClassListContains(NewHierarchyConstants.NameClass));
-            return VisualElementSearchUtility.FindFirst(nameElement,
-                element => element is Label label && !string.IsNullOrEmpty(label.text)) as Label;
+            return VisualElementSearchUtility.FindFirst(nameElement, element => element is Label) as Label;
         }
     }
 }
