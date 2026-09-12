@@ -2,6 +2,14 @@
 
 All notable changes to this package are documented in this file.
 
+## [1.0.1] - 2026-09-13
+
+### Fixed
+
+- Use UI Toolkit queries for visible-row discovery and generated-icon cleanup, removing one recursive iterator allocation per visited visual node.
+- Preserve exact icon classes, root matches, host tint restoration and existing row-cache invalidation.
+- Add focused icon cleanup and allocation-growth regression tests.
+
 ## [1.0.0] - 2026-07-09
 
 ### Added

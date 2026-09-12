@@ -1,6 +1,5 @@
 #if UNITY_EDITOR
 using System;
-using System.Collections.Generic;
 using UnityEngine.UIElements;
 
 namespace VMFramework.HierarchyColor
@@ -31,26 +30,6 @@ namespace VMFramework.HierarchyColor
             return null;
         }
 
-        public static IEnumerable<VisualElement> FindAll(VisualElement root, Func<VisualElement, bool> predicate)
-        {
-            if (root == null)
-            {
-                yield break;
-            }
-
-            if (predicate(root))
-            {
-                yield return root;
-            }
-
-            for (int i = 0; i < root.hierarchy.childCount; i++)
-            {
-                foreach (var child in FindAll(root.hierarchy.ElementAt(i), predicate))
-                {
-                    yield return child;
-                }
-            }
-        }
     }
 }
 #endif

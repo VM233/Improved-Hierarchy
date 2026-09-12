@@ -19,19 +19,21 @@ and clearer main object icons.
 
 ## Installation
 
-Add the package through Unity Package Manager with this Git URL:
+Add the package through Unity Package Manager at an immutable published Git revision:
 
 ```text
-https://github.com/VM233/Improved-Hierarchy.git
+https://github.com/VM233/Improved-Hierarchy.git#<full-commit-sha>
 ```
 
 Or add it to `Packages/manifest.json`:
 
 ```json
-"com.vm233.improved-hierarchy": "https://github.com/VM233/Improved-Hierarchy.git"
+"com.vm233.improved-hierarchy": "https://github.com/VM233/Improved-Hierarchy.git#<full-commit-sha>"
 ```
 
 ## Settings
 
 Open `Preferences > Improved Hierarchy` to configure color presets, component icon display,
 and main icon rules.
+
+Hierarchy discovery and icon cleanup use UI Toolkit queries with result snapshots before tree mutation. They retain the existing row-cache invalidation and rendering behavior. See `Documentation~/hierarchy-query-cost.md` for the measured allocation problem and validation scope.

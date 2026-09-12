@@ -107,8 +107,7 @@ namespace VMFramework.HierarchyColor
 
         private static void RefreshRowsCache(long windowID, VisualElement root)
         {
-            windowRows[windowID] = new List<VisualElement>(
-                VisualElementSearchUtility.FindAll(root, element => element.name == NewHierarchyConstants.RowName));
+            windowRows[windowID] = root.Query<VisualElement>(name: NewHierarchyConstants.RowName).ToList();
         }
 
         private static void ApplyToCachedRows(long windowID, VisualElement root)

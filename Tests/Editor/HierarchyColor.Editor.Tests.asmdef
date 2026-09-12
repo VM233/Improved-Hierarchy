@@ -1,0 +1,7 @@
+{
+  "name": "HierarchyColor.Editor.Tests",
+  "references": ["HierarchyColor.Editor"],
+  "includePlatforms": ["Editor"],
+  "optionalUnityReferences": ["TestAssemblies"],
+  "autoReferenced": false
+}

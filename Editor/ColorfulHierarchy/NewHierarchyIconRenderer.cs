@@ -1,5 +1,4 @@
 #if UNITY_EDITOR
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -34,22 +33,19 @@ namespace VMFramework.HierarchyColor
 
         public static void Clear(VisualElement row)
         {
-            var iconRoots = new List<VisualElement>(VisualElementSearchUtility.FindAll(row,
-                element => element.ClassListContains(NewHierarchyConstants.IconRootClass)));
+            var iconRoots = row.Query<VisualElement>(className: NewHierarchyConstants.IconRootClass).ToList();
             foreach (var iconRoot in iconRoots)
             {
                 iconRoot.RemoveFromHierarchy();
             }
 
-            var mainIconRoots = new List<VisualElement>(VisualElementSearchUtility.FindAll(row,
-                element => element.ClassListContains(NewHierarchyConstants.MainIconClass)));
+            var mainIconRoots = row.Query<VisualElement>(className: NewHierarchyConstants.MainIconClass).ToList();
             foreach (var iconRoot in mainIconRoots)
             {
                 iconRoot.RemoveFromHierarchy();
             }
 
-            var mainIconHosts = new List<VisualElement>(VisualElementSearchUtility.FindAll(row,
-                element => element.ClassListContains(NewHierarchyConstants.MainIconHostClass)));
+            var mainIconHosts = row.Query<VisualElement>(className: NewHierarchyConstants.MainIconHostClass).ToList();
             foreach (var iconHost in mainIconHosts)
             {
                 iconHost.RemoveFromClassList(NewHierarchyConstants.MainIconHostClass);
