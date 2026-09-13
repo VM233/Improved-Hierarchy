@@ -1,8 +1,6 @@
 #if UNITY_EDITOR
-using System;
 using System.Collections.Generic;
 using UnityEditor;
-using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace VMFramework.HierarchyColor
@@ -48,7 +46,6 @@ namespace VMFramework.HierarchyColor
         }
 
         private static readonly Dictionary<EditorWindow, WindowPresentation> windows = new();
-        private static Type hierarchyWindowType;
         private static double nextWindowScanTime;
 
         public static void UpdateWhenDue()
@@ -65,9 +62,9 @@ namespace VMFramework.HierarchyColor
 
         private static void ApplyToWindows()
         {
-            foreach (var windowObject in FindHierarchyWindows())
+            foreach (var window in HierarchyEditorWindowRegistry.ActiveWindows)
             {
-                var window = (EditorWindow)windowObject;
+                if (window.GetType().FullName != NewHierarchyConstants.WindowTypeName) continue;
                 if (window.rootVisualElement.panel == null) continue;
                 if (!windows.TryGetValue(window, out var presentation))
                 {
@@ -78,20 +75,6 @@ namespace VMFramework.HierarchyColor
             }
         }
 
-        private static UnityEngine.Object[] FindHierarchyWindows()
-        {
-            hierarchyWindowType ??= FindHierarchyWindowType();
-            return hierarchyWindowType == null
-                ? Array.Empty<UnityEngine.Object>()
-                : Resources.FindObjectsOfTypeAll(hierarchyWindowType);
-        }
-
-        private static Type FindHierarchyWindowType()
-        {
-            foreach (var type in TypeCache.GetTypesDerivedFrom<EditorWindow>())
-                if (type.FullName == NewHierarchyConstants.WindowTypeName) return type;
-            return null;
-        }
     }
 }
 #endif

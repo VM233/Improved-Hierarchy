@@ -2,6 +2,13 @@
 
 All notable changes to this package are documented in this file.
 
+## [1.0.4] - 2026-09-13
+
+### Fixed
+
+- Read Unity's active Editor window registry for retained Hierarchy discovery, removing the loaded-object scan from periodic and scene-change refreshes.
+- Verify registry membership across EditorWindow creation and destruction without adding a second membership cache.
+
 ## [1.0.3] - 2026-09-13
 
 ### Fixed
