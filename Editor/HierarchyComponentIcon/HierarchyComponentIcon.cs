@@ -534,8 +534,17 @@ namespace VMFramework.HierarchyColor
         private static bool IsHierarchyWindowFocused()
         {
             var focusedWindow = EditorWindow.focusedWindow;
-            return focusedWindow != null && focusedWindow.GetType().Name.Contains("HierarchyWindow");
+            if (focusedWindow == null) return false;
+            var type = focusedWindow.GetType();
+            if (type != lastFocusedType)
+            {
+                lastFocusedType = type;
+                focusedTypeIsHierarchy = type.Name.Contains("HierarchyWindow");
+            }
+            return focusedTypeIsHierarchy;
         }
+        private static System.Type lastFocusedType;
+        private static bool focusedTypeIsHierarchy;
 
         private static HierarchyObjectStatus GetHierarchyObjectStatus(GameObject obj, Rect selectionRect)
         {

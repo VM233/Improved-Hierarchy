@@ -34,12 +34,12 @@ namespace VMFramework.HierarchyColor
             if (evt.target == evt.currentTarget) RemoveFromCache((VisualElement)evt.currentTarget);
         }
 
-        public static void Apply(VisualElement row)
+        public static void Apply(VisualElement row,bool hierarchyChanged=true)
         {
-            Apply(row, NewHierarchyReflection.GetGameObject(row), FindNameLabel(row));
+            Apply(row, NewHierarchyReflection.GetGameObject(row), FindNameLabel(row),hierarchyChanged);
         }
 
-        internal static void Apply(VisualElement row, GameObject gameObject, Label label)
+        internal static void Apply(VisualElement row, GameObject gameObject, Label label,bool hierarchyChanged=true)
         {
             if (gameObject == null || label == null)
             {
@@ -50,11 +50,14 @@ namespace VMFramework.HierarchyColor
                 return;
             }
 
-            string objectName = gameObject.name;
+            rowStyleStates.TryGetValue(row, out var state);
+            bool sameRow = state != null && state.Object == gameObject && state.Label == label;
+            string presented = label.text;
+            string objectName = sameRow && !hierarchyChanged && (presented == state.DisplayName || presented == state.ObjectName)
+                ? state.ObjectName : gameObject.name;
             var settings = HierarchyColorSettings.instance;
             gameObject.GetComponents(componentScratch);
-            if (rowStyleStates.TryGetValue(row, out var state) &&
-                state.Object == gameObject && state.Label == label && state.ObjectName == objectName &&
+            if (sameRow && state.ObjectName == objectName &&
                 state.SettingsRevision == settings.PresentationRevision &&
                 state.ActiveInHierarchy == gameObject.activeInHierarchy &&
                 ComponentsMatch(state.Components, componentScratch))

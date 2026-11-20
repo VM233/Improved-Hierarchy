@@ -27,3 +27,7 @@ Focused tests use at most 35 synthetic rows and 32 components per object, with o
 ## Test cleanup counterexample
 
 The first 1.0.2 test run reported ten passing leaves, but a subsequent scene read found `Camera Object` with Camera, BoxCollider and Rigidbody after the package-test reload. Replaying only the component-reordering test in workflow `e2da7ee1a61a` reproduced the same residual object, ID `18691697755190`, despite its passing assertion result. Unity Test Runner's `PerformUndoTask` runs after test teardown and calls `Undo.RevertAllDownToGroup`. The reorder API records Undo, while the fixture previously destroyed its GameObject without retiring that record. The later Undo recreated the object. Version 1.0.3 gives the synchronous reorder operation its own Undo group and reverts that group before destruction. No user Undo group is reverted by the fixture. This adds one bounded Undo group and one reversal to the existing single reorder test, with no production-code or cost change. Final acceptance must also read the caller scene after the test workflow and verify zero test objects.
+
+## Scheduled row refresh
+
+Each Hierarchy window owns its query and row list until it detaches. A scheduled redraw reuses the last name when the object, label and displayed text still match. Unity reports renames through the hierarchy change event. A recycled row or newly bound label reads its current object immediately. [Unity hierarchy changes](https://docs.unity3d.com/6000.0/Documentation/ScriptReference/EditorApplication-hierarchyChanged.html)

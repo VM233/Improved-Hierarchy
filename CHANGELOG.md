@@ -2,6 +2,10 @@
 
 All notable changes to this package are documented in this file.
 
+## [1.0.5] - 2026-11-20
+
+- Reuse the visible-row query and results and read object names again on hierarchy changes, native label changes and row recycling. Cache the focused window type between Editor updates.
+
 ## [1.0.4] - 2026-09-13
 
 ### Fixed

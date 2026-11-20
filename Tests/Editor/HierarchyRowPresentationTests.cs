@@ -129,9 +129,12 @@ namespace VMFramework.HierarchyColor.Tests
             string expected = preset.autoUpperLetters ? "Row Name".ToUpper() : "Row Name";
             Assert.That(label.text, Is.EqualTo(expected));
             label.text = gameObject.name;
-            NewHierarchyRowRenderer.Apply(row, gameObject, label);
+            NewHierarchyRowRenderer.Apply(row, gameObject, label, false);
             Assert.That(label.text, Is.EqualTo(expected));
             Assert.That(row.Q(className: NewHierarchyConstants.IconRootClass), Is.SameAs(icons));
+            gameObject.name = "Renamed without a preset";
+            NewHierarchyRowRenderer.Apply(row, gameObject, label, true);
+            Assert.That(label.text, Is.EqualTo(gameObject.name));
         }
 
         [Test]
@@ -141,7 +144,7 @@ namespace VMFramework.HierarchyColor.Tests
             var second = new GameObject("Other Object", typeof(Light), typeof(BoxCollider));
             try
             {
-                NewHierarchyRowRenderer.Apply(row, second, label);
+                NewHierarchyRowRenderer.Apply(row, second, label, false);
                 Assert.That(label.text, Is.EqualTo(second.name));
                 Assert.That(first.parent, Is.Null);
                 label.text = "Scene Name";
@@ -159,12 +162,11 @@ namespace VMFramework.HierarchyColor.Tests
         public void UnchangedPassDoesNotAllocateIconsOrComponentArrays()
         {
             var icons = Draw();
-            for (int index = 0; index < 10; index++) NewHierarchyRowRenderer.Apply(row, gameObject, label);
+            for (int index = 0; index < 10; index++) NewHierarchyRowRenderer.Apply(row, gameObject, label, false);
             long before = GC.GetAllocatedBytesForCurrentThread();
-            for (int index = 0; index < 100; index++) NewHierarchyRowRenderer.Apply(row, gameObject, label);
+            for (int index = 0; index < 100; index++) NewHierarchyRowRenderer.Apply(row, gameObject, label, false);
             long bytes = GC.GetAllocatedBytesForCurrentThread() - before;
-            Assert.That(bytes, Is.LessThanOrEqualTo(8192),
-                $"One hundred unchanged passes allocated {bytes} bytes, including native object names.");
+            Assert.That(bytes, Is.Zero, $"One hundred unchanged scheduled passes allocated {bytes} bytes.");
             Assert.That(row.Q(className: NewHierarchyConstants.IconRootClass), Is.SameAs(icons));
         }
 

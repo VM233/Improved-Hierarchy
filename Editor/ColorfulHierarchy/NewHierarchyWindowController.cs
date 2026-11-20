@@ -12,26 +12,30 @@ namespace VMFramework.HierarchyColor
             private readonly EditorWindow window;
             private readonly VisualElement root;
             private readonly IVisualElementScheduledItem scheduled;
-            private List<VisualElement> rows = new();
+            private readonly List<VisualElement> rows = new();
+            private readonly UQueryState<VisualElement> rowQuery;
 
             internal WindowPresentation(EditorWindow window)
             {
                 this.window = window;
                 root = window.rootVisualElement;
+                rowQuery = root.Query<VisualElement>(name: NewHierarchyConstants.RowName).Build();
                 root.RegisterCallback<DetachFromPanelEvent>(OnDetached);
-                scheduled = root.schedule.Execute(ApplyRows).Every(NewHierarchyConstants.RefreshIntervalMs);
+                scheduled = root.schedule.Execute(ApplyScheduledRows).Every(NewHierarchyConstants.RefreshIntervalMs);
             }
 
-            internal void RefreshRows()
+            internal void RefreshRows(bool hierarchyChanged)
             {
-                rows = root.Query<VisualElement>(name: NewHierarchyConstants.RowName).ToList();
-                ApplyRows();
+                rows.Clear();
+                rowQuery.ToList(rows);
+                ApplyRows(hierarchyChanged);
             }
 
-            private void ApplyRows()
+            private void ApplyScheduledRows() => ApplyRows(false);
+            private void ApplyRows(bool hierarchyChanged)
             {
                 foreach (var row in rows)
-                    if (row.panel != null) NewHierarchyRowRenderer.Apply(row);
+                    if (row.panel != null) NewHierarchyRowRenderer.Apply(row,hierarchyChanged);
             }
 
             private void OnDetached(DetachFromPanelEvent evt)
@@ -52,18 +56,20 @@ namespace VMFramework.HierarchyColor
         {
             if (EditorApplication.timeSinceStartup < nextWindowScanTime) return;
             nextWindowScanTime = EditorApplication.timeSinceStartup + NewHierarchyConstants.WindowScanIntervalSeconds;
-            ApplyToWindows();
+            ApplyToWindows(false);
         }
 
         public static void RepaintAll()
         {
-            ApplyToWindows();
+            ApplyToWindows(true);
         }
 
-        private static void ApplyToWindows()
+        private static void ApplyToWindows(bool hierarchyChanged)
         {
-            foreach (var window in HierarchyEditorWindowRegistry.ActiveWindows)
+            var active = HierarchyEditorWindowRegistry.ActiveWindows;
+            for (int i = 0; i < active.Count; i++)
             {
+                var window = active[i];
                 if (window.GetType().FullName != NewHierarchyConstants.WindowTypeName) continue;
                 if (window.rootVisualElement.panel == null) continue;
                 if (!windows.TryGetValue(window, out var presentation))
@@ -71,7 +77,7 @@ namespace VMFramework.HierarchyColor
                     presentation = new WindowPresentation(window);
                     windows.Add(window, presentation);
                 }
-                presentation.RefreshRows();
+                presentation.RefreshRows(hierarchyChanged);
             }
         }
 
